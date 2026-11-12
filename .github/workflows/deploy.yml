@@ -27,19 +27,14 @@ jobs:
       - name: Compilar APK Android
         run: |
           cd android
-          gradle assembleDebug --stacktrace
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - name: Copiar APK para o site público
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
 
-      - name: Salvar APK como Artifact no GitHub
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-viamao-delivery-debug
-          path: public/viamao-delivery.apk
-
-      - name: Deploy no Firebase Hosting com o APK incluso
+      - name: Deploy no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
