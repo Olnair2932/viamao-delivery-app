@@ -1,0 +1,2 @@
+rootProject.name = 'viamao-delivery'
+include ':app'
