@@ -2,29 +2,25 @@ name: Deploy Firebase & Build APK
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
-    name: 🚀 Deploy & Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configurar Java 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Setup Gradle
+        uses: actions/setup-gradle@v3
         with:
           cache: false
-        with:
-          gradle-version: '8.5'
 
       - name: Criar Gradlew e Compilar
         run: |
@@ -35,13 +31,13 @@ jobs:
 
       - name: Copiar APK para site
         run: |
-          mkdir -p public
-          cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
+          mkdir -p public/downloads
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/app-debug.apk || true
 
       - name: Deploy no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_FINANCE_MASTER_629D1 }}'
           channelId: live
           projectId: finance-master-629d1
