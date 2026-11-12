@@ -19,11 +19,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Compilar APK e Gerar Gradlew
+      - name: Compilar APK e Corrigir Gradlew
         run: |
           cd android
+          # Força a criação do gradlew
           gradle wrapper
+          # Garante que ele tenha permissão
           chmod +x gradlew
+          # Compila
           ./gradlew assembleDebug --stacktrace
 
       - name: Copiar APK para site
@@ -32,8 +35,8 @@ jobs:
           cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
 
       - name: Deploy no Firebase Hosting
-        run: |
-          npm install -g firebase-tools
-          firebase deploy --only hosting --project finance-master-629d1
-        env:
-          FIREBASE_TOKEN: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          projectId: finance-master-629d1
