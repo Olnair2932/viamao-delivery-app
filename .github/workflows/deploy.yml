@@ -19,14 +19,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.5'
-
-      - name: Compilar APK
+      - name: Compilar APK e Gerar Gradlew
         run: |
           cd android
+          gradle wrapper
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
