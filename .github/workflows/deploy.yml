@@ -24,14 +24,17 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Compilar APK
+      - name: Criar Gradlew e Compilar
         run: |
           cd android
+          gradle wrapper
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Copiar APK para site
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
+        run: |
+          mkdir -p public
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
 
       - name: Deploy Firebase (Hosting + Rules)
         uses: FirebaseExtended/action-hosting-deploy@v0
