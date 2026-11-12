@@ -3,26 +3,27 @@ name: Deploy Firebase & Build APK
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   deploy-firebase:
-    name: Deploy no Firebase Hosting
+    name: 🌐 Deploy Firebase Hosting
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Instalar Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Deploy para Firebase Hosting
-        run: firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}"
+        run: firebase deploy --only hosting --project finance-master-629d1 --token "${{ secrets.FIREBASE_TOKEN }}"
 
   build-android:
-    name: Compilar APK Android
+    name: 📱 Compilar APK Android
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -33,15 +34,18 @@ jobs:
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
       - name: Gerar APK Debug
         run: |
           cd android
-          chmod +x gradlew || gradle wrapper
+          gradle wrapper
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Disponibilizar APK para Download
         uses: actions/upload-artifact@v4
         with:
-          name: app-viamao-delivery
+          name: app-viamao-delivery-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk

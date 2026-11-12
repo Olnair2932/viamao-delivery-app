@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "finance-master-629d1",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
   }
