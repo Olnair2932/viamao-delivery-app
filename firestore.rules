@@ -1,8 +1,231 @@
 rules_version = '2';
+// Viamão Delivery multi-filial (central-d7800) - CORRIGIDO FALHAS 05/11/2026
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    function isMaster(){
+      return request.auth!=null && request.auth.uid=='dwCdRE1hHTgHGwlVscRLU5hKKDA3';
+    }
+    function adminDoc(){
+      return get(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function callerFilial(){
+      return request.auth==null ? '' :
+        isMaster() ? '*' :
+        !exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ? '' :
+        adminDoc().data.active!=true ? '' :
+        adminDoc().data.filial;
+    }
+    function canManage(f){
+      let cf=callerFilial();
+      return cf=='*'||(cf!=''&&cf==f);
+    }
+    function isOwner(){
+      return callerFilial()=='*';
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if canManage(request.resource.data.filial);
+      allow update: if canManage(resource.data.filial) && canManage(request.resource.data.filial);
+      allow delete: if canManage(resource.data.filial);
+    }
+
+    function pedidoValido(d, oid){
+      return d.keys().hasAll(['id','items','status','createdAt','filial'])
+        && d.keys().hasOnly(['id','items','itens','status','createdAt','filial','subtotal','taxa','total','cupom','desconto','tipo','temDados'])
+        && d.id is string && d.id.size() >= 4 && d.id.size() <= 20
+        && d.filial is string && d.filial.size() > 0 && d.filial.size() <= 60
+        && oid == d.filial + '_' + d.id
+        && d.status == 'pendente'
+        && d.items is string && d.items.size() <= 2000
+        && d.createdAt is number
+        && d.createdAt > request.time.toMillis() - 86400000
+        && d.createdAt < request.time.toMillis() + 86400000
+        && (!('itens' in d) || (d.itens is list && d.itens.size() <= 60))
+        && (!('subtotal' in d) || (d.subtotal is number && d.subtotal >= 0 && d.subtotal <= 100000))
+        && (!('taxa' in d) || (d.taxa is number && d.taxa >= 0 && d.taxa <= 9999))
+        && (!('total' in d) || (d.total is number && d.total >= 0 && d.total <= 100000))
+        && (!('desconto' in d) || (d.desconto is number && d.desconto >= 0 && d.desconto <= 100000))
+        && (!('cupom' in d) || d.cupom == null || (d.cupom is string && d.cupom.size() <= 20))
+        && (!('tipo' in d) || d.tipo in ['entrega','retirada'])
+        && (!('tipo' in d) || d.tipo != 'retirada' || !('taxa' in d) || d.taxa == 0)
+        && (!('temDados' in d) || d.temDados is bool);
+    }
+    function privadoValido(d, pid){
+      return d.keys().hasAll(['id','filial','createdAt','cliente'])
+        && d.keys().hasOnly(['id','filial','createdAt','cliente','endereco','referencia','pagamento','troco','obsCliente'])
+        && d.id is string && d.filial is string
+        && pid == d.filial + '_' + d.id
+        && d.createdAt is number
+        && d.cliente is map && d.cliente.keys().hasOnly(['nome','fone'])
+        && d.cliente.nome is string && d.cliente.nome.size() <= 60
+        && (!('fone' in d.cliente) || (d.cliente.fone is string && d.cliente.fone.size() <= 13))
+        && (!('endereco' in d) || (d.endereco is string && d.endereco.size() <= 140))
+        && (!('referencia' in d) || (d.referencia is string && d.referencia.size() <= 100))
+        && (!('pagamento' in d) || d.pagamento in ['pix','dinheiro','cartao'])
+        && (!('troco' in d) || (d.troco is number && d.troco >= 0 && d.troco <= 100000))
+        && (!('obsCliente' in d) || (d.obsCliente is string && d.obsCliente.size() <= 200));
+    }
+
+    function entregaMpValida(d, eid){
+      return d.keys().hasOnly(['id','filial','total_centavos','total','subtotal','taxa','desconto','itens','cliente','tipo','pago','status','createdAt','descricao','expiresAt'])
+        && d.id == eid
+        && d.id is string && d.id.matches('^(PED-|APOIO-).*') && d.id.size() >= 6 && d.id.size() <= 30
+        && d.filial is string && d.filial.size()>0 && d.filial.size()<=60
+        && d.total_centavos is number && d.total_centavos >= 50 && d.total_centavos <= 10000000
+        && d.pago is bool
+        && d.status in ['aguardando_pagamento','pago','apoio_pendente','apoio_pago']
+        && d.createdAt is number
+        && d.createdAt > request.time.toMillis() - 86400000
+        && d.createdAt < request.time.toMillis() + 600000
+        && (!('total' in d) || (d.total is number && d.total >= 0 && d.total <= 100000))
+        && (!('subtotal' in d) || (d.subtotal is number && d.subtotal >= 0))
+        && (!('taxa' in d) || (d.taxa is number && d.taxa >= 0 && d.taxa <= 9999))
+        && (!('desconto' in d) || (d.desconto is number && d.desconto >= 0))
+        && (!('itens' in d) || (d.itens is list && d.itens.size() <= 60))
+        && (!('cliente' in d) || d.cliente is map)
+        && (!('tipo' in d) || d.tipo in ['entrega','retirada','apoio'])
+        && (!('descricao' in d) || (d.descricao is string && d.descricao.size() <= 200))
+        && (!('expiresAt' in d) || (d.expiresAt is timestamp));
+    }
+
+    match /orders/{orderId} {
+      allow get: if true;
+      allow list: if isOwner() || canManage(resource.data.filial);
+      allow create: if pedidoValido(request.resource.data, orderId);
+      allow update, delete: if canManage(resource.data.filial);
+    }
+
+    match /pedidos_privados/{pid} {
+      allow read: if isOwner() || canManage(resource.data.filial);
+      allow create: if canManage(request.resource.data.filial)
+        || (privadoValido(request.resource.data, pid)
+            && !exists(/databases/$(database)/documents/orders/$(pid))
+            && existsAfter(/databases/$(database)/documents/orders/$(pid)));
+      allow update, delete: if canManage(resource.data.filial);
+    }
+    match /cupons/{cid} {
+      allow read: if true;
+      allow create: if canManage(request.resource.data.filial)
+        && request.resource.data.codigo is string && request.resource.data.codigo.size() >= 3 && request.resource.data.codigo.size() <= 20
+        && request.resource.data.tipo in ['pct', 'valor']
+        && request.resource.data.valor is number && request.resource.data.valor > 0 && request.resource.data.valor <= 1000
+        && (request.resource.data.tipo == 'valor' || request.resource.data.valor <= 100)
+        && request.resource.data.ativo is bool
+        && request.resource.data.filial is string && request.resource.data.filial.size() > 0;
+      allow update, delete: if canManage(resource.data.filial);
+    }
+    match /vales/{vid} {
+      allow read: if true;
+      allow create: if request.resource.data.codigo is string && request.resource.data.codigo.matches('VL-[A-Z0-9]{6}')
+        && request.resource.data.valor is number && request.resource.data.valor > 0 && request.resource.data.valor <= 500
+        && request.resource.data.saldo == request.resource.data.valor
+        && request.resource.data.ativo == true
+        && request.resource.data.filial is string && request.resource.data.filial.size() > 0
+        && request.resource.data.criadoEm is number
+        && request.resource.data.validade == request.resource.data.criadoEm + 2592000000;
+      allow update: if canManage(resource.data.filial)
+        || (request.resource.data.codigo == resource.data.codigo
+          && request.resource.data.filial == resource.data.filial
+          && request.resource.data.valor == resource.data.valor
+          && request.resource.data.criadoEm == resource.data.criadoEm
+          && request.resource.data.validade == resource.data.validade
+          && request.resource.data.saldo <= resource.data.saldo
+          && request.resource.data.saldo >= 0);
+      allow delete: if canManage(resource.data.filial);
+    }
+    match /colaboradores/{cid} {
+      allow read: if true;
+      allow create: if canManage(request.resource.data.filial)
+        && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 40
+        && request.resource.data.fone is string && request.resource.data.fone.size() >= 10 && request.resource.data.fone.size() <= 16
+        && request.resource.data.funcao is string
+        && request.resource.data.ativo is bool
+        && request.resource.data.filial is string && request.resource.data.filial.size() > 0;
+      allow update, delete: if canManage(resource.data.filial);
+    }
+    match /motoboys/{mid} {
+      allow read: if true;
+      allow create: if canManage(request.resource.data.filial)
+        && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 40
+        && request.resource.data.fone is string && request.resource.data.fone.size() >= 10 && request.resource.data.fone.size() <= 16
+        && request.resource.data.placa is string
+        && request.resource.data.ativo is bool
+        && request.resource.data.filial is string && request.resource.data.filial.size() > 0;
+      allow update, delete: if canManage(resource.data.filial);
+    }
+    match /avaliacoes/{aid} {
+      allow read: if true;
+      allow create: if (
+        (request.resource.data.produto is string && request.resource.data.produto.size() > 0 && request.resource.data.produto.size() <= 200
+          && request.resource.data.filial is string && request.resource.data.filial.size() > 0
+          && request.resource.data.estrelas is int && request.resource.data.estrelas >= 1 && request.resource.data.estrelas <= 5
+          && request.resource.data.createdAt is number)
+        ||
+        (request.resource.data.pedido is string && request.resource.data.pedido.size() > 0
+          && request.resource.data.filial is string && request.resource.data.filial.size() > 0
+          && request.resource.data.nota is int && request.resource.data.nota >= 1 && request.resource.data.nota <= 5
+          && (!('comentario' in request.resource.data) || (request.resource.data.comentario is string && request.resource.data.comentario.size() <= 200))
+          && request.resource.data.createdAt is timestamp)
+      );
+      allow delete: if isOwner();
+    }
+
+    match /entregas/{eid} {
+      allow get: if true;
+      allow list: if isOwner() || (request.auth != null && canManage(resource.data.filial));
+      allow create: if entregaMpValida(request.resource.data, eid)
+        || (request.auth != null && canManage(request.resource.data.filial)
+            && request.resource.data.pedidoId is string
+            && request.resource.data.filial is string && request.resource.data.filial.size() > 0
+            && request.resource.data.token is string && request.resource.data.token.size() >= 8);
+      allow update: if (request.auth != null && canManage(resource.data.filial) && canManage(request.resource.data.filial))
+        || (resource.data.token is string
+            && request.resource.data.token == resource.data.token
+            && request.resource.data.pedidoId == resource.data.pedidoId
+            && request.resource.data.filial == resource.data.filial
+            && request.resource.data.lat is number && request.resource.data.lng is number
+            && request.resource.data.status in ['a_caminho', 'encerrado', 'entregue']);
+      allow delete: if isOwner();
+    }
+
+    match /pagamentos_processados/{pid} {
+      allow read, write: if false;
+    }
+
+    match /admins/{uid} {
+      allow get: if request.auth!=null && (request.auth.uid==uid || isOwner());
+      allow list: if isOwner();
+      allow create, update, delete: if isOwner();
+    }
+
+    match /filiais/{fid} {
+      allow read: if true;
+      allow create, delete: if isOwner();
+      allow update: if isOwner() || (request.auth != null && fid == callerFilial() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['whatsapp', 'taxa_entrega', 'hora_abre', 'hora_fecha', 'aberto_manual', 'pix_chave', 'frete_gratis_minimo', 'mp_token', 'mp_api_url', 'nome', 'emoji', 'fretes_bairro', 'cnpj', 'obs_geral']) && (!('whatsapp' in request.resource.data.keys()) || (request.resource.data.whatsapp is string && request.resource.data.whatsapp.size() >= 12 && request.resource.data.whatsapp.size() <= 13)) && (!('taxa_entrega' in request.resource.data.keys()) || (request.resource.data.taxa_entrega is number && request.resource.data.taxa_entrega >= 0 && request.resource.data.taxa_entrega <= 9999)) && (!('hora_abre' in request.resource.data.keys()) || (request.resource.data.hora_abre is string && (request.resource.data.hora_abre == '' || request.resource.data.hora_abre.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))) && (!('hora_fecha' in request.resource.data.keys()) || (request.resource.data.hora_fecha is string && (request.resource.data.hora_fecha == '' || request.resource.data.hora_fecha.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))) && (!('aberto_manual' in request.resource.data.keys()) || request.resource.data.aberto_manual is bool) && (!('pix_chave' in request.resource.data.keys()) || (request.resource.data.pix_chave is string && request.resource.data.pix_chave.size() <= 80)) && (!('frete_gratis_minimo' in request.resource.data.keys()) || (request.resource.data.frete_gratis_minimo is number && request.resource.data.frete_gratis_minimo >= 0 && request.resource.data.frete_gratis_minimo <= 9999)) && (!('mp_token' in request.resource.data.keys()) || (request.resource.data.mp_token is string && (request.resource.data.mp_token == '' || request.resource.data.mp_token.matches('^APP_USR-.*')) && request.resource.data.mp_token.size() <= 200)) && (!('mp_api_url' in request.resource.data.keys()) || (request.resource.data.mp_api_url is string && request.resource.data.mp_api_url.size() <= 200)) && (!('nome' in request.resource.data.keys()) || (request.resource.data.nome is string && request.resource.data.nome.size() <= 60)) && (!('emoji' in request.resource.data.keys()) || (request.resource.data.emoji is string && request.resource.data.emoji.size() <= 10)) && (!('cnpj' in request.resource.data.keys()) || (request.resource.data.cnpj is string && request.resource.data.cnpj.size() <= 18)) && (!('obs_geral' in request.resource.data.keys()) || (request.resource.data.obs_geral is string && request.resource.data.obs_geral.size() <= 140)));
+    }
+
+    match /config/{docId} {
+      allow read, write: if isOwner();
+    }
+
+    match /contribuicoes/{cid} {
+      allow get: if isOwner() || (request.auth != null && (resource == null || resource.data.filial == callerFilial()));
+      allow list: if isOwner();
+      allow create: if request.auth != null
+        && !exists(/databases/$(database)/documents/contribuicoes/$(cid))
+        && request.resource.data.filial == callerFilial()
+        && cid == request.resource.data.filial + '_' + request.resource.data.mes
+        && request.resource.data.status == 'pendente'
+        && request.resource.data.mes is string
+        && request.resource.data.email is string;
+      allow update, delete: if isOwner();
+    }
+
+    match /fcm_tokens/{t} {
+      allow read: if isOwner();
+      allow write: if request.auth!=null;
     }
   }
 }
