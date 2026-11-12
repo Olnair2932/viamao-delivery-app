@@ -7,10 +7,10 @@ on:
 
 jobs:
   build-and-deploy:
-    name: 🚀 Compilar APK & Deploy Firebase
+    name: 🚀 Deploy & Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -24,20 +24,18 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Compilar APK Android
+      - name: Compilar APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Copiar APK para o site público
-        run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
+      - name: Copiar APK para site
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
 
-      - name: Deploy no Firebase Hosting
+      - name: Deploy Firebase (Hosting + Rules)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
-          channelId: live
           projectId: finance-master-629d1
