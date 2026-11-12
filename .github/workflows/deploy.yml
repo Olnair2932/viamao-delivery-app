@@ -10,20 +10,22 @@ jobs:
     name: 🌐 Deploy Firebase Hosting
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Instalar Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Deploy para Firebase Hosting
-        run: firebase deploy --only hosting --project finance-master-629d1 --token "${{ secrets.FIREBASE_TOKEN }}"
+      - name: Deploy oficial no Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          channelId: live
+          projectId: finance-master-629d1
 
   build-android:
     name: 📱 Compilar APK Android
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout do código
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -37,12 +39,10 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Gerar APK Debug
+      - name: Compilar APK
         run: |
           cd android
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace
 
       - name: Disponibilizar APK para Download
         uses: actions/upload-artifact@v4
