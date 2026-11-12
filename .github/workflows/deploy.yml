@@ -6,23 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy-firebase:
-    name: 🌐 Deploy Firebase Hosting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Deploy oficial no Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
-          channelId: live
-          projectId: finance-master-629d1
-
-  build-android:
-    name: 📱 Compilar APK Android
+  build-and-deploy:
+    name: 🚀 Compilar APK & Deploy Firebase
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do código
@@ -39,13 +24,25 @@ jobs:
         with:
           gradle-version: '8.5'
 
-      - name: Compilar APK
+      - name: Compilar APK Android
         run: |
           cd android
           gradle assembleDebug --stacktrace
 
-      - name: Disponibilizar APK para Download
+      - name: Copiar APK para o site público
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
+
+      - name: Salvar APK como Artifact no GitHub
         uses: actions/upload-artifact@v4
         with:
           name: app-viamao-delivery-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: public/viamao-delivery.apk
+
+      - name: Deploy no Firebase Hosting com o APK incluso
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+          channelId: live
+          projectId: finance-master-629d1

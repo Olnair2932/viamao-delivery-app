@@ -3715,19 +3715,13 @@ function shareApp(){
   else{window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank');}
 }
 function downloadApk(){
-  fetch('https://api.github.com/repos/Olnair2932/viamao-delivery-apk/releases/latest').then(function(r){
-    if(!r.ok)throw new Error('no-apk');
-    return r.json();
-  }).then(function(rel){
-    var assets=rel.assets||[],apk=null;
-    for(var i=0;i<assets.length;i++){if(/\.apk$/i.test(assets[i].name)){apk=assets[i];break;}}
-    if(!apk)throw new Error('no-apk');
-    var a=document.createElement('a');a.href=apk.browser_download_url;a.setAttribute('download',apk.name);
-    document.body.appendChild(a);a.click();a.remove();
-    showToast('📲 Baixando APK...');
-  }).catch(function(){
-    showToast('📲 APK ainda não publicado. Veja os releases do app.');
-  });
+  showToast('📲 Baixando aplicativo...');
+  var a = document.createElement('a');
+  a.href = '/viamao-delivery.apk';
+  a.download = 'viamao-delivery.apk';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ a.remove(); }, 1500);
 }
 var _conviteLojistaTxt='';
 function loadConviteLojistaTxt(){
