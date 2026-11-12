@@ -14,4 +14,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ViamaoDelivery"
 include ':app'
-// Force build sync
