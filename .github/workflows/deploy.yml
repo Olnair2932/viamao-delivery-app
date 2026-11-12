@@ -1,4 +1,4 @@
-name: Deploy Firebase & Build APK
+name: Deploy Firebase Hosting
 
 on:
   push:
@@ -6,33 +6,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
-    name: 🚀 Deploy & Build
+  deploy:
+    name: 🚀 Deploy Firebase
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Configurar Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Compilar APK e Corrigir Gradlew
-        run: |
-          cd android
-          # Força a criação do gradlew
-          gradle wrapper
-          # Garante que ele tenha permissão
-          chmod +x gradlew
-          # Compila
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Copiar APK para site
-        run: |
-          mkdir -p public
-          cp android/app/build/outputs/apk/debug/app-debug.apk public/viamao-delivery.apk
 
       - name: Deploy no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
