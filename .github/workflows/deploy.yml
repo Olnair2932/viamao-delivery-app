@@ -22,10 +22,6 @@ jobs:
           python3 - << 'PY'
           import os, struct, zlib
           def make_png(path, size):
-              # PNG 1 pixel esticado via header, valido para o AAPT
-              # Cria PNG RGBA simples
-              raw = b'\x00' + b'\x00\x80\xff\xff' * size
-              # Na verdade gera 1x1 e deixa o Android escalar
               width = 1
               height = 1
               raw_data = b'\x00' + bytes([0, 128, 255, 255])
@@ -66,6 +62,6 @@ jobs:
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_FINANCE_MASTER_629D1 }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
           channelId: live
           projectId: finance-master-629d1
