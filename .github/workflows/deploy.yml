@@ -19,16 +19,36 @@ jobs:
 
       - name: Criar icones se faltarem
         run: |
-          mkdir -p android/app/src/main/res
-          for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-            mkdir -p android/app/src/main/res/$d
-            if [ ! -f android/app/src/main/res/$d/ic_launcher.png ]; then
-              echo '[STRIPPED 96 bytes]' | base64 -d > android/app/src/main/res/$d/ic_launcher.png
-            fi
-            if [ ! -f android/app/src/main/res/$d/ic_launcher_round.png ]; then
-              cp android/app/src/main/res/$d/ic_launcher.png android/app/src/main/res/$d/ic_launcher_round.png
-            fi
-          done
+          python3 - << 'PY'
+          import os, struct, zlib
+          def make_png(path, size):
+              # PNG 1 pixel esticado via header, valido para o AAPT
+              # Cria PNG RGBA simples
+              raw = b'\x00' + b'\x00\x80\xff\xff' * size
+              # Na verdade gera 1x1 e deixa o Android escalar
+              width = 1
+              height = 1
+              raw_data = b'\x00' + bytes([0, 128, 255, 255])
+              def chunk(typ, data):
+                  c = struct.pack('>I', len(data)) + typ + data
+                  c += struct.pack('>I', zlib.crc32(typ + data) & 0xffffffff)
+                  return c
+              png = b'\x89PNG\r\n\x1a\n'
+              png += chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0))
+              png += chunk(b'IDAT', zlib.compress(raw_data))
+              png += chunk(b'IEND', b'')
+              open(path, 'wb').write(png)
+          base = 'android/app/src/main/res'
+          os.makedirs(base, exist_ok=True)
+          for d in ['mipmap-mdpi','mipmap-hdpi','mipmap-xhdpi','mipmap-xxhdpi','mipmap-xxxhdpi']:
+              folder = os.path.join(base, d)
+              os.makedirs(folder, exist_ok=True)
+              for name in ['ic_launcher.png','ic_launcher_round.png']:
+                  p = os.path.join(folder, name)
+                  if not os.path.exists(p):
+                      make_png(p, 48)
+                      print(f'criado {p}')
+          PY
 
       - name: Criar Gradlew e Compilar
         run: |
