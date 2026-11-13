@@ -17,11 +17,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: actions/setup-gradle@v3
-        with:
-          cache: false
-
       - name: Criar Gradlew e Compilar
         run: |
           cd android
