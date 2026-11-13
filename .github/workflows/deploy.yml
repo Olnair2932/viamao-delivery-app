@@ -53,10 +53,11 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Copiar APK para site
+      - name: Copiar APK para site como ZIP
         run: |
           mkdir -p public/downloads
-          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/app-debug.apk || true
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/downloads/app-debug.zip || true
+          ls -lh public/downloads/
 
       - name: Deploy no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
